@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>一体化SVG文件名合规检查工具</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #1d1d1f;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #6e6e73;
+      margin-bottom: 28px;
+    }
+
+    /* ── Upload Area ── */
+    .upload-area {
+      background: #fff;
+      border: 2px dashed #c7c7cc;
+      border-radius: 14px;
+      padding: 36px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+
+    .upload-area.dragover {
+      border-color: #0071e3;
+      background: #f0f6ff;
+    }
+
+    .upload-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+      color: #6e6e73;
+    }
+
+    .upload-area p {
+      font-size: 15px;
+      color: #1d1d1f;
+      margin-bottom: 6px;
+    }
+
+    .upload-area small {
+      font-size: 13px;
+      color: #6e6e73;
+    }
+
+    .upload-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: background 0.15s, opacity 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: #0071e3;
+      color: #fff;
+    }
+    .btn-primary:hover { background: #0077ed; }
+
+    .btn-secondary {
+      background: #e8e8ed;
+      color: #1d1d1f;
+    }
+    .btn-secondary:hover { background: #d8d8df; }
+
+    .btn-danger {
+      background: #ff3b30;
+      color: #fff;
+    }
+    .btn-danger:hover { background: #ff453a; }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    input[type="file"] { display: none; }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 24px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .counter {
+      font-size: 14px;
+      color: #6e6e73;
+    }
+    .counter span {
+      font-weight: 600;
+      color: #1d1d1f;
+    }
+
+    /* ── Alert Banner ── */
+    .alert {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      margin-top: 16px;
+    }
+    .alert.show { display: flex; }
+    .alert-error { background: #fff2f0; color: #c0392b; border: 1px solid #ffd1ce; }
+    .alert-warn  { background: #fffbe6; color: #b7791f; border: 1px solid #ffe58f; }
+
+    /* ── File List ── */
+    .file-list {
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .file-item {
+      background: #fff;
+      border-radius: 10px;
+      padding: 14px 16px;
+      border-left: 4px solid transparent;
+      transition: box-shadow 0.15s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    .file-item.pass  { border-left-color: #34c759; }
+    .file-item.fail  { border-left-color: #ff3b30; }
+
+    .file-item-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 20px;
+    }
+    .badge-pass { background: #e6f9ec; color: #1a8f3b; }
+    .badge-fail { background: #fff0ee; color: #c0392b; }
+
+    .filename {
+      font-size: 14px;
+      font-weight: 500;
+      word-break: break-all;
+      color: #1d1d1f;
+    }
+
+    .file-errors {
+      margin-top: 8px;
+      padding-left: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .error-line {
+      font-size: 12px;
+      color: #c0392b;
+      display: flex;
+      align-items: flex-start;
+      gap: 5px;
+    }
+    .error-line::before { content: "•"; flex-shrink: 0; }
+
+    .suggest-line {
+      font-size: 12px;
+      color: #0071e3;
+      margin-top: 6px;
+      display: flex;
+      align-items: flex-start;
+      gap: 5px;
+    }
+    .suggest-label {
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .suggest-name {
+      font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+      background: #f0f6ff;
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    /* ── Summary ── */
+    .summary {
+      display: none;
+      align-items: center;
+      gap: 16px;
+      background: #fff;
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-top: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      font-size: 13px;
+    }
+    .summary.show { display: flex; }
+    .summary-item { display: flex; align-items: center; gap: 5px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot-pass { background: #34c759; }
+    .dot-fail { background: #ff3b30; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>一体化SVG文件名合规检查工具</h1>
+  <p class="subtitle">命名规范：<code>前缀_名称.svg</code>，前缀只能是 <code>mono</code>、<code>multi</code>、<code>def</code>，每个下划线后的段首字母大写，仅允许字母、数字和下划线，例如 <code>mono_Home.svg</code>、<code>def_My_Icon.svg</code>、<code>multi_Nav_AIQuickFilling_Selected.svg</code></p>
+
+  <!-- Upload Zone -->
+  <div class="upload-area" id="dropZone">
+    <div class="upload-icon">☁️</div>
+    <p>拖拽 SVG 文件或文件夹到此区域</p>
+    <small>每次最多上传 40 个文件（当前已达上限时拒绝新增）</small>
+    <div class="upload-buttons">
+      <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+        选择文件
+      </button>
+      <button class="btn btn-secondary" onclick="document.getElementById('folderInput').click()">
+        选择文件夹
+      </button>
+    </div>
+  </div>
+
+  <!-- Hidden inputs -->
+  <input type="file" id="fileInput"   accept=".svg" multiple />
+  <input type="file" id="folderInput" accept=".svg" multiple webkitdirectory />
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="counter">已上传：<span id="countDisplay">0</span> / 40</div>
+    <button class="btn btn-danger" id="clearBtn" onclick="clearAll()" disabled>一键清空</button>
+  </div>
+
+  <!-- Alert banner -->
+  <div class="alert alert-error" id="alertBanner">
+    <span id="alertText"></span>
+  </div>
+
+  <!-- Summary row -->
+  <div class="summary" id="summaryRow">
+    <div class="summary-item"><div class="dot dot-pass"></div><span id="passCount">0 个合规</span></div>
+    <div class="summary-item"><div class="dot dot-fail"></div><span id="failCount">0 个不符合规范</span></div>
+  </div>
+
+  <!-- File list -->
+  <div class="file-list" id="fileList"></div>
+</div>
+
+<script>
+  const MAX = 40;
+  let files = []; // { name: string }
+
+  const fileInput   = document.getElementById('fileInput');
+  const folderInput = document.getElementById('folderInput');
+  const dropZone    = document.getElementById('dropZone');
+  const fileList    = document.getElementById('fileList');
+  const countDisplay = document.getElementById('countDisplay');
+  const clearBtn    = document.getElementById('clearBtn');
+  const alertBanner = document.getElementById('alertBanner');
+  const alertText   = document.getElementById('alertText');
+  const summaryRow  = document.getElementById('summaryRow');
+  const passCount   = document.getElementById('passCount');
+  const failCount   = document.getElementById('failCount');
+
+  // ── Input listeners ──
+  fileInput.addEventListener('change', e => {
+    handleFiles(e.target.files);
+    fileInput.value = '';
+  });
+  folderInput.addEventListener('change', e => {
+    handleFiles(e.target.files);
+    folderInput.value = '';
+  });
+
+  // ── Drag & Drop ──
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+  });
+
+  // ── Core: add files ──
+  function handleFiles(fileList) {
+    hideAlert();
+    const incoming = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.svg'));
+
+    if (incoming.length === 0) {
+      showAlert('未检测到 SVG 文件，请重新选择。');
+      return;
+    }
+
+    const total = files.length + incoming.length;
+    if (total > MAX) {
+      showAlert(`本次新增后共 ${total} 个，超过上限 ${MAX} 个。请先清空已上传文件，或减少本次上传数量。`);
+      return;
+    }
+
+    files = files.concat(incoming.map(f => ({ name: f.name })));
+    render();
+  }
+
+  // ── Clear ──
+  function clearAll() {
+    files = [];
+    hideAlert();
+    render();
+  }
+
+  // ── Validation ──
+  // Format: prefix_Seg1_Seg2_...svg
+  // prefix: must be exactly one of: mono, multi, def
+  // each segment after _ must start with uppercase letter
+  // only letters, digits and underscores allowed (no spaces or other symbols)
+  // extension must be lowercase .svg
+  const VALID_PREFIXES = ['mono', 'multi', 'def'];
+
+  function validate(name) {
+    const errors = [];
+
+    // Extension check
+    if (!name.endsWith('.svg')) {
+      errors.push('扩展名必须是小写 .svg');
+      const noExt = name.replace(/\.[^.]+$/, '');
+      return { valid: false, errors, suggest: suggestName(noExt) };
+    }
+
+    const base = name.slice(0, -4); // remove .svg
+
+    // No spaces or special characters (only letters, digits, underscores)
+    if (/[^A-Za-z0-9_]/.test(base)) {
+      errors.push('文件名只允许使用字母、数字和下划线，不能包含空格或其他符号');
+      return { valid: false, errors, suggest: null };
+    }
+
+    const segments = base.split('_');
+
+    if (segments.length < 2) {
+      errors.push('命名格式必须包含下划线，格式为 前缀_名称.svg');
+      return { valid: false, errors, suggest: suggestFromScratch(base) };
+    }
+
+    const prefix = segments[0];
+    const nameSegs = segments.slice(1);
+
+    // Prefix: must be exactly mono / multi / def, nothing before it
+    if (prefix.length === 0) {
+      errors.push('前缀不能为空，必须是 mono、multi 或 def 之一');
+    } else if (!VALID_PREFIXES.includes(prefix)) {
+      errors.push(`前缀 "${prefix}" 无效，只允许使用 mono、multi 或 def`);
+    }
+
+    // Each name segment: must start with uppercase letter, not empty
+    nameSegs.forEach((seg, idx) => {
+      if (seg.length === 0) {
+        errors.push(`第 ${idx + 2} 段名称不能为空（下划线之间不能为空）`);
+      } else if (!/^[A-Z]/.test(seg)) {
+        errors.push(`第 ${idx + 2} 段名称 "${seg}" 首字母必须大写`);
+      }
+    });
+
+    const suggest = buildSuggest(prefix, nameSegs);
+    return { valid: errors.length === 0, errors, suggest: errors.length === 0 ? null : suggest };
+  }
+
+  function buildSuggest(prefix, nameSegs) {
+    // Keep prefix if valid, otherwise default to 'mono'
+    const fixedPrefix = VALID_PREFIXES.includes(prefix) ? prefix : 'mono';
+
+    // Fix each name segment: force first char uppercase, filter empty
+    const fixedSegs = nameSegs
+      .filter(s => s.length > 0)
+      .map(s => s[0].toUpperCase() + s.slice(1));
+
+    if (fixedSegs.length === 0) fixedSegs.push('Name');
+
+    return fixedPrefix + '_' + fixedSegs.join('_') + '.svg';
+  }
+
+  function suggestName(base) {
+    const segments = base.split('_');
+    if (segments.length < 2) return suggestFromScratch(base);
+    return buildSuggest(segments[0], segments.slice(1));
+  }
+
+  function suggestFromScratch(base) {
+    if (!base) return 'mono_Name.svg';
+    return 'mono_' + base[0].toUpperCase() + base.slice(1) + '.svg';
+  }
+
+  // ── Duplicate detection ──
+  function buildDupMap(fileArray) {
+    const map = {};
+    fileArray.forEach(f => {
+      const key = f.name.toLowerCase();
+      map[key] = (map[key] || 0) + 1;
+    });
+    return map;
+  }
+
+  // ── Render ──
+  function render() {
+    countDisplay.textContent = files.length;
+    clearBtn.disabled = files.length === 0;
+
+    const dupMap = buildDupMap(files);
+    const listEl = document.getElementById('fileList');
+    listEl.innerHTML = '';
+
+    let passTotal = 0, failTotal = 0;
+
+    files.forEach(f => {
+      const { valid, errors, suggest } = validate(f.name);
+      const isDup = dupMap[f.name.toLowerCase()] > 1;
+      const allErrors = [...errors];
+      if (isDup) allErrors.push('文件名重复');
+
+      const isPass = allErrors.length === 0;
+      isPass ? passTotal++ : failTotal++;
+
+      const item = document.createElement('div');
+      item.className = 'file-item ' + (isPass ? 'pass' : 'fail');
+
+      let errHtml = '';
+      if (allErrors.length > 0) {
+        errHtml = '<div class="file-errors">'
+          + allErrors.map(e => `<div class="error-line">${escHtml(e)}</div>`).join('')
+          + (suggest && !isDup
+            ? `<div class="suggest-line"><span class="suggest-label">推荐命名：</span><span class="suggest-name">${escHtml(suggest)}</span></div>`
+            : '')
+          + '</div>';
+      }
+
+      item.innerHTML = `
+        <div class="file-item-header">
+          <span class="badge ${isPass ? 'badge-pass' : 'badge-fail'}">${isPass ? '合规' : '不合规'}</span>
+          <span class="filename">${escHtml(f.name)}</span>
+        </div>
+        ${errHtml}
+      `;
+
+      listEl.appendChild(item);
+    });
+
+    // Summary
+    if (files.length > 0) {
+      summaryRow.classList.add('show');
+      passCount.textContent = `${passTotal} 个合规`;
+      failCount.textContent = `${failTotal} 个不符合规范`;
+    } else {
+      summaryRow.classList.remove('show');
+    }
+  }
+
+  // ── Alert helpers ──
+  function showAlert(msg) {
+    alertText.textContent = msg;
+    alertBanner.classList.add('show');
+  }
+  function hideAlert() {
+    alertBanner.classList.remove('show');
+  }
+
+  // ── Escape HTML ──
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+</body>
+</html>
